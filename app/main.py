@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.agents.planner import PlannerAgent
 from app.agents.search_agent import SearchAgent
 from app.models.schemas import ResearchRequest
+from app.retrieval.deduplication import DeduplicationService
 
 
 app = FastAPI(
@@ -14,6 +15,7 @@ app = FastAPI(
 
 planner = PlannerAgent()
 search_agent = SearchAgent()
+deduplication_service = DeduplicationService()
 
 
 @app.get("/health")
@@ -33,8 +35,14 @@ def research(request: ResearchRequest):
         plan.queries
     )
 
+    unique_results = deduplication_service.remove_duplicates(
+        search_results
+    )
+
     return {
         "question": request.question,
         "search_queries": plan.queries,
-        "results": search_results
+        "total_results": len(search_results),
+        "unique_results": len(unique_results),
+        "results": unique_results
     }
