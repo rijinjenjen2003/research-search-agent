@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.agents.planner import PlannerAgent
+from app.agents.search_agent import SearchAgent
 from app.models.schemas import ResearchRequest
 
 
@@ -12,6 +13,7 @@ app = FastAPI(
 
 
 planner = PlannerAgent()
+search_agent = SearchAgent()
 
 
 @app.get("/health")
@@ -27,7 +29,12 @@ def research(request: ResearchRequest):
 
     plan = planner.create_plan(request.question)
 
+    search_results = search_agent.search_queries(
+        plan.queries
+    )
+
     return {
         "question": request.question,
-        "search_queries": plan.queries
+        "search_queries": plan.queries,
+        "results": search_results
     }
