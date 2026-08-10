@@ -20,17 +20,25 @@ class SynthesizerAgent:
     ) -> str:
 
         evidence_text = ""
+        source_map = []
 
-        # Limit evidence to avoid Groq token-limit problems
-        for index, source in enumerate(sources[:8], start=1):
+        for index, source in enumerate(
+            sources[:8],
+            start=1
+        ):
 
+            title = source.get("title", "Unknown source")
+            url = source.get("url", "")
             content = source.get("content", "")[:1200]
 
             evidence_text += f"""
-SOURCE {index}
+SOURCE [{index}]
 
-Title: {source.get("title")}
-URL: {source.get("url")}
+Title:
+{title}
+
+URL:
+{url}
 
 Evidence:
 {content}
@@ -38,7 +46,12 @@ Evidence:
 -------------------------
 """
 
-        # Convert structured verification into readable text
+            source_map.append({
+                "id": index,
+                "title": title,
+                "url": url
+            })
+
         verification_text = f"""
 Status: {verification.get("status")}
 Confidence: {verification.get("confidence")}
@@ -59,47 +72,58 @@ Recommendation:
         prompt = f"""
 You are a research synthesis agent.
 
-Answer the user's research question using ONLY
-the evidence provided below.
+Answer the user's question using ONLY the provided
+approved sources.
 
 Research question:
 {question}
 
-Verification analysis:
+Verification:
 {verification_text}
 
-Sources:
+Approved sources:
+
 {evidence_text}
+
+Citation rules:
+
+1. Every important factual claim must have a citation.
+2. Use the exact source number provided above.
+3. Use citations such as [1], [2], [3].
+4. Do not create citation numbers that do not exist.
+5. A citation must directly support the claim.
+6. If multiple sources support a claim, cite multiple sources.
+7. Do not use information outside the provided sources.
 
 Requirements:
 
-1. Give a clear and factual answer.
-2. Do not invent information.
-3. Cite claims using [1], [2], etc.
-4. Clearly mention conflicting information.
-5. Clearly mention uncertainty.
-6. Prefer information supported by multiple sources.
-7. Do not make claims that are not supported by the sources.
+- Give a clear answer.
+- Do not invent information.
+- Mention important conflicts.
+- Mention uncertainty when evidence is limited.
+- Use only approved sources.
 
 Format:
 
 ## Answer
 
-Your answer here.
+Write the answer with citations.
 
 ## Confidence
 
-State the confidence level.
+State the confidence level and explain briefly why.
 
 ## Uncertainty
 
-Mention uncertainty or write:
+Explain important uncertainties.
+If there are none, write:
 "No major uncertainty identified."
 
 ## Sources
 
 [1] Source title - URL
 [2] Source title - URL
+...
 """
 
         response = self.llm.invoke(prompt)

@@ -42,9 +42,13 @@ def research(request: ResearchRequest):
         result.get("unique_results", [])
     ),
 
-    "approved_sources": len(
-        result.get("approved_sources", [])
-    ),
+    "approved_sources": [
+        {
+            "title": source.get("title"),
+            "url": source.get("url")
+        }
+        for source in result.get("approved_sources", [])
+    ],
 
     "rejected_sources": len(
         result.get("rejected_sources", [])
