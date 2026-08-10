@@ -28,25 +28,45 @@ class SynthesizerAgent:
 
             evidence_text += f"""
 SOURCE {index}
+
 Title: {source.get("title")}
 URL: {source.get("url")}
+
 Evidence:
 {content}
 
 -------------------------
 """
 
+        # Convert structured verification into readable text
+        verification_text = f"""
+Status: {verification.get("status")}
+Confidence: {verification.get("confidence")}
+
+Supported Claims:
+{verification.get("supported_claims")}
+
+Conflicts:
+{verification.get("conflicts")}
+
+Uncertainties:
+{verification.get("uncertainties")}
+
+Recommendation:
+{verification.get("recommendation")}
+"""
+
         prompt = f"""
 You are a research synthesis agent.
 
-Answer the user's research question using ONLY the
-evidence provided below.
+Answer the user's research question using ONLY
+the evidence provided below.
 
 Research question:
 {question}
 
 Verification analysis:
-{verification.get("verification", "")}
+{verification_text}
 
 Sources:
 {evidence_text}
@@ -57,8 +77,9 @@ Requirements:
 2. Do not invent information.
 3. Cite claims using [1], [2], etc.
 4. Clearly mention conflicting information.
-5. Clearly mention uncertainty when evidence is insufficient.
+5. Clearly mention uncertainty.
 6. Prefer information supported by multiple sources.
+7. Do not make claims that are not supported by the sources.
 
 Format:
 
@@ -66,9 +87,14 @@ Format:
 
 Your answer here.
 
+## Confidence
+
+State the confidence level.
+
 ## Uncertainty
 
-Mention uncertainty or write "No major uncertainty identified."
+Mention uncertainty or write:
+"No major uncertainty identified."
 
 ## Sources
 

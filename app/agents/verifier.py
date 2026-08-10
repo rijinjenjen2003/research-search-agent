@@ -1,3 +1,5 @@
+import json
+
 from langchain_groq import ChatGroq
 
 from app.core.config import settings
@@ -6,24 +8,44 @@ from app.core.config import settings
 class VerificationAgent:
 
     def __init__(self):
+
         self.llm = ChatGroq(
             model=settings.llm_model,
             api_key=settings.groq_api_key,
             temperature=0
         )
 
-    def verify(self, question: str, sources: list[dict]) -> dict:
+    def verify(
+        self,
+        question: str,
+        sources: list[dict]
+    ) -> dict:
+
         sources = sources[:8]
 
         evidence_text = ""
 
-        for index, source in enumerate(sources, start=1):
+        for index, source in enumerate(
+            sources,
+            start=1
+        ):
+
+            content = source.get(
+                "content",
+                ""
+            )[:1200]
+
             evidence_text += f"""
 SOURCE {index}
-Title: {source.get("title")}
-URL: {source.get("url")}
+
+Title:
+{source.get("title")}
+
+URL:
+{source.get("url")}
+
 Content:
-{source.get("content", "")}
+{content}
 
 -------------------------
 """
@@ -34,44 +56,79 @@ You are an evidence verification agent.
 Research question:
 {question}
 
-Below are search results collected from multiple independent sources:
+Evidence collected from multiple sources:
 
 {evidence_text}
 
-Analyze the evidence and determine:
+Analyze the evidence.
 
-1. What major claims are supported?
-2. Whether the sources agree with each other.
-3. Whether there are conflicting claims.
-4. Whether the evidence is sufficient to answer the question.
-5. What information remains uncertain.
+Return ONLY valid JSON.
 
-Return your analysis using exactly this structure:
+Use exactly this structure:
 
-STATUS:
-SUPPORTED, CONFLICTING, or INSUFFICIENT
+{{
+    "status": "SUPPORTED",
+    "confidence": "HIGH",
+    "supported_claims": [
+        "claim supported by the evidence"
+    ],
+    "conflicts": [],
+    "uncertainties": [],
+    "recommendation": "No additional research required"
+}}
 
-CONFIDENCE:
-HIGH, MEDIUM, or LOW
+Allowed status values:
 
-SUPPORTED_CLAIMS:
-- claim 1
-- claim 2
+SUPPORTED
+CONFLICTING
+INSUFFICIENT
 
-CONFLICTS:
-- conflict 1
-- NONE if there are no conflicts
+Allowed confidence values:
 
-UNCERTAINTIES:
-- uncertainty 1
-- NONE if there are no uncertainties
+HIGH
+MEDIUM
+LOW
 
-RECOMMENDATION:
-A short recommendation about whether more research is required.
+Rules:
+
+- SUPPORTED means the evidence is sufficient.
+- CONFLICTING means important sources disagree.
+- INSUFFICIENT means there is not enough evidence.
+- Do not invent claims.
+- Put unresolved information in uncertainties.
+- If there are no conflicts, return an empty conflicts list.
+- If there are no uncertainties, return an empty uncertainties list.
 """
 
         response = self.llm.invoke(prompt)
 
-        return {
-            "verification": response.content
-        }
+        content = response.content.strip()
+
+        # Remove markdown code fences if the model adds them
+        if content.startswith("```"):
+            content = content.replace(
+                "```json",
+                ""
+            ).replace(
+                "```",
+                ""
+            ).strip()
+
+        try:
+
+            verification = json.loads(content)
+
+        except json.JSONDecodeError:
+
+            return {
+                "status": "INSUFFICIENT",
+                "confidence": "LOW",
+                "supported_claims": [],
+                "conflicts": [],
+                "uncertainties": [
+                    "Verifier returned invalid structured output."
+                ],
+                "recommendation": "Perform additional research."
+            }
+
+        return verification

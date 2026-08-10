@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from fastapi import FastAPI
 
 from app.models.schemas import ResearchRequest
@@ -13,6 +15,7 @@ app = FastAPI(
 
 @app.get("/health")
 def health_check():
+
     return {
         "status": "healthy",
         "service": "research-search-agent"
@@ -27,10 +30,27 @@ def research(request: ResearchRequest):
     })
 
     return {
-        "question": result["question"],
-        "search_queries": result["search_queries"],
-        "total_results": len(result["search_results"]),
-        "unique_results": len(result["unique_results"]),
-        "verification": result["verification"],
-        "final_answer": result["final_answer"]
-    }
+    "question": result["question"],
+
+    "search_queries": result["search_queries"],
+
+    "total_results": len(
+        result.get("search_results", [])
+    ),
+
+    "unique_results": len(
+        result.get("unique_results", [])
+    ),
+
+    "approved_sources": len(
+        result.get("approved_sources", [])
+    ),
+
+    "rejected_sources": len(
+        result.get("rejected_sources", [])
+    ),
+
+    "verification": result.get("verification"),
+
+    "final_answer": result.get("final_answer")
+}
